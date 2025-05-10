@@ -1,1 +1,7 @@
-/musl/busybox sh /musl/libctest_testcode.sh
+/musl/busybox echo "#### OS COMP TEST GROUP START libctest-glibc ####"
+/musl/busybox echo "#### OS COMP TEST GROUP START libctest-musl ####"
+/musl/runtest.exe -w entry-static.exe pthread_cancel
+/musl/runtest.exe -w entry-static.exe pthread_cond
+/musl/runtest.exe -w entry-static.exe pthread_tsd
+/musl/busybox echo "#### OS COMP TEST GROUP END libctest-musl ####"
+/musl/busybox echo "#### OS COMP TEST GROUP END libctest-glibc ####"

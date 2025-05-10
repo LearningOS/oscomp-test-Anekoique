@@ -72,6 +72,9 @@ fn check_sigset_size(size: usize) -> LinuxResult<()> {
 }
 
 fn parse_signo(signo: u32) -> LinuxResult<Signo> {
+    if signo == 0 || signo > 64 {
+        return Err(LinuxError::EINVAL);
+    }
     Signo::from_repr(signo as u8).ok_or(LinuxError::EINVAL)
 }
 
