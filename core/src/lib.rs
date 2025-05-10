@@ -9,5 +9,6 @@ extern crate axlog;
 extern crate alloc;
 
 pub mod mm;
+pub mod resources;
 pub mod task;
 mod time;

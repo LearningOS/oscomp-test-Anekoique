@@ -48,6 +48,8 @@ fn handle_syscall(tf: &mut TrapFrame, syscall_num: usize) -> isize {
         #[cfg(target_arch = "x86_64")]
         Sysno::fork => sys_fork(tf),
         Sysno::wait4 => sys_waitpid(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
+        #[cfg(target_arch = "x86_64")]
+        Sysno::pipe => sys_pipe(tf.arg0().into()),
         Sysno::pipe2 => sys_pipe2(tf.arg0().into()),
         Sysno::close => sys_close(tf.arg0() as _),
         Sysno::chdir => sys_chdir(tf.arg0().into()),
@@ -63,7 +65,12 @@ fn handle_syscall(tf: &mut TrapFrame, syscall_num: usize) -> isize {
         ),
         #[cfg(target_arch = "x86_64")]
         Sysno::open => sys_open(tf.arg0().into(), tf.arg1() as _, tf.arg2() as _),
+        Sysno::lseek => sys_lseek(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
         Sysno::getdents64 => sys_getdents64(tf.arg0() as _, tf.arg1().into(), tf.arg2() as _),
+        #[cfg(target_arch = "x86_64")]
+        Sysno::link => sys_link(tf.arg0().into(), tf.arg1().into()),
+        #[cfg(target_arch = "x86_64")]
+        Sysno::unlink => sys_unlink(tf.arg0().into()),
         Sysno::linkat => sys_linkat(
             tf.arg0() as _,
             tf.arg1().into(),
@@ -123,6 +130,40 @@ fn handle_syscall(tf: &mut TrapFrame, syscall_num: usize) -> isize {
             tf.arg1().into(),
             tf.arg2().into(),
             tf.arg3() as _,
+        ),
+        Sysno::rt_sigreturn => sys_rt_sigreturn(tf),
+        Sysno::rt_sigpending => sys_rt_sigpending(tf.arg0().into(), tf.arg1() as _),
+        Sysno::rt_sigtimedwait => sys_rt_sigtimedwait(
+            tf.arg0().into(),
+            tf.arg1().into(),
+            tf.arg2().into(),
+            tf.arg3() as _,
+        ),
+        Sysno::rt_sigqueueinfo => sys_rt_sigqueueinfo(
+            tf.arg0() as _,
+            tf.arg1() as _,
+            tf.arg2().into(),
+            tf.arg3() as _,
+        ),
+        Sysno::rt_tgsigqueueinfo => sys_rt_tgsigqueueinfo(
+            tf.arg0() as _,
+            tf.arg1() as _,
+            tf.arg2() as _,
+            tf.arg3().into(),
+            tf.arg4() as _,
+        ),
+        Sysno::rt_sigsuspend => sys_rt_sigsuspend(tf, tf.arg0().into(), tf.arg1() as _),
+        Sysno::sigaltstack => sys_sigaltstack(tf.arg0().into(), tf.arg1().into()),
+        Sysno::kill => sys_kill(tf.arg0() as _, tf.arg1() as _),
+        Sysno::tkill => sys_tkill(tf.arg0() as _, tf.arg1() as _),
+        Sysno::tgkill => sys_tgkill(tf.arg0() as _, tf.arg1() as _, tf.arg2() as _),
+        Sysno::getrlimit => sys_getrlimit(tf.arg0() as _, tf.arg1().into()),
+        Sysno::setrlimit => sys_setrlimit(tf.arg0() as _, tf.arg1().into()),
+        Sysno::prlimit64 => sys_prlimit64(
+            tf.arg0() as _,
+            tf.arg1() as _,
+            tf.arg2().into(),
+            tf.arg3().into(),
         ),
         _ => {
             warn!("Unimplemented syscall: {}", sysno);

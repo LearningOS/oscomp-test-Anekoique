@@ -39,6 +39,7 @@ axsync = { git = "https://github.com/oscomp/arceos.git" }
 axtask = { git = "https://github.com/oscomp/arceos.git" }
 
 axprocess = { git = "https://github.com/Starry-OS/axprocess.git" }
+axsignal = { path = "./modules/axsignal" }
 
 axerrno = "0.1"
 bitflags = "2.6"
@@ -77,6 +78,7 @@ axtask.workspace = true
 arceos_posix_api.workspace = true
 
 axprocess.workspace = true
+axsignal.workspace = true
 
 axerrno.workspace = true
 linkme.workspace = true
@@ -85,6 +87,7 @@ linux-raw-sys.workspace = true
 starry-core.workspace = true
 starry-api.workspace = true
 
+shlex = { version = "1.3.0", default-features = false }
 syscalls = { git = "https://github.com/jasonwhite/syscalls.git", rev = "92624de", default-features = false }
 
 [patch.crates-io]

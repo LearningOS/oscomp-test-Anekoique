@@ -9,7 +9,7 @@ use loongArch64::register::{crmd, ecfg, eentry, pgdh, pgdl, stlbps, tlbidx, tlbr
 use memory_addr::{PhysAddr, VirtAddr};
 use page_table_multiarch::loongarch64::LA64MetaData;
 
-pub use self::context::{TaskContext, TrapFrame};
+pub use self::context::{GeneralRegisters, TaskContext, TrapFrame};
 
 #[cfg(feature = "uspace")]
 pub use self::context::UspaceContext;

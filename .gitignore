@@ -11,3 +11,5 @@ apps/*/build/
 /.axconfig.*
 *.img
 /extern
+/diff
+/log

@@ -10,3 +10,7 @@ pub fn sys_pipe2(fds: UserPtr<i32>) -> LinuxResult<isize> {
     let fds_slice: &mut [c_int] = unsafe { core::slice::from_raw_parts_mut(fds, 2) };
     Ok(api::sys_pipe(fds_slice) as _)
 }
+
+pub fn sys_pipe(fds: UserPtr<i32>) -> LinuxResult<isize> {
+    sys_pipe2(fds)
+}

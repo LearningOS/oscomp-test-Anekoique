@@ -1,6 +1,9 @@
 use core::ffi::{c_char, c_void};
 
-use arceos_posix_api::{self as api, ctypes::mode_t};
+use arceos_posix_api::{
+    self as api,
+    ctypes::{mode_t, off_t},
+};
 use axerrno::LinuxResult;
 
 use crate::ptr::{PtrWrapper, UserConstPtr, UserPtr};
@@ -13,6 +16,10 @@ pub fn sys_read(fd: i32, buf: UserPtr<c_void>, count: usize) -> LinuxResult<isiz
 pub fn sys_write(fd: i32, buf: UserConstPtr<c_void>, count: usize) -> LinuxResult<isize> {
     let buf = buf.get_as_bytes(count)?;
     Ok(api::sys_write(fd, buf, count))
+}
+
+pub fn sys_lseek(fd: i32, offset: off_t, whence: i32) -> LinuxResult<isize> {
+    Ok(api::sys_lseek(fd, offset, whence) as _)
 }
 
 pub fn sys_writev(
