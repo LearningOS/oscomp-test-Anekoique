@@ -1,0 +1,385 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="StarryX-Record"><title>starry - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-c579a84d.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="starry" data-themes="" data-resource-suffix="" data-rustdoc-version="1.86.0-nightly (6067b3631 2025-01-17)" data-channel="nightly" data-search-js="search-ccb196c1.js" data-settings-js="settings-0f613d39.js" ><script src="../static.files/storage-59e33391.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../starry/index.html">starry</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#starryx-record" title="StarryX-Record">StarryX-Record</a><ul><li><a href="#进程管理" title="进程管理">进程管理</a></li><li><a href="#信号机制" title="信号机制">信号机制</a></li><li><a href="#futex" title="Futex">Futex</a></li><li><a href="#arceos-change" title="ArceOS change">ArceOS change</a></li><li><a href="#questions" title="Questions">Questions</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>starry</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/starry/main.rs.html#1-35">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="starryx-record"><a class="doc-anchor" href="#starryx-record">§</a>StarryX-Record</h2>
+<p>启动流程 _start(axhal) -&gt; rust_entry(axhal) -&gt; rust_main(axruntime) -&gt; main(starry) -&gt; run_user_app</p>
+<p>run_user_app major process</p>
+<ol>
+<li>进入执行程序目录</li>
+<li>加载用户elf文件</li>
+<li>初始化用户上下文</li>
+<li>创建用户任务和线程数据</li>
+<li>复制全局命名空间数据到本地线程空间</li>
+<li>创建进程和线程</li>
+<li>阻塞主任务并调度</li>
+</ol>
+<h3 id="进程管理"><a class="doc-anchor" href="#进程管理">§</a>进程管理</h3><h4 id="数据结构"><a class="doc-anchor" href="#数据结构">§</a>数据结构</h4><div class="example-wrap"><pre class="language-mermaid"><code>graph TD
+    subgraph &quot;Task 层 (基础调度单元)&quot;
+        Task[&quot;Task/TaskInner
+        - id: TaskId
+        - name: String
+        - state: TaskState
+        - ctx: TaskContext
+        - kstack: TaskStack
+        - task_ext: AxTaskExt&quot;]
+    end
+    
+    subgraph &quot;Task扩展层 (连接Task和Thread)&quot;
+        TaskExt[&quot;TaskExt
+        - time: TimeStat
+        - thread: Arc&lt;Thread&gt;&quot;]
+    end
+    
+    subgraph &quot;Thread 层 (线程)&quot;
+        Thread[&quot;Thread
+        - tid: Pid
+        - process: Arc&lt;Process&gt;
+        - data: Box&lt;dyn Any&gt;&quot;]
+        
+        ThreadData[&quot;ThreadData
+        - clear_child_tid: AtomicUsize&quot;]
+    end
+    
+    subgraph &quot;Process 层 (进程)&quot;
+        Process[&quot;Process
+        - pid: Pid
+        - is_zombie: AtomicBool
+        - tg: ThreadGroup
+        - data: Box&lt;dyn Any&gt;
+        - children: StrongMap&lt;Pid, Arc&lt;Process&gt;&gt;
+        - parent: Weak&lt;Process&gt;
+        - group: Arc&lt;ProcessGroup&gt;&quot;]
+        
+        ProcessData[&quot;ProcessData
+        - exe_path: String
+        - aspace: Arc&lt;Mutex&lt;AddrSpace&gt;&gt;
+        - ns: AxNamespace
+        - heap_bottom/top: AtomicUsize&quot;]
+        
+        ThreadGroup[&quot;ThreadGroup
+        - threads: WeakMap&lt;Pid, Weak&lt;Thread&gt;&gt;
+        - exit_code: i32
+        - group_exited: bool&quot;]
+        
+        ProcessGroup[&quot;ProcessGroup
+        - pgid: Pid
+        - session: Arc&lt;Session&gt;
+        - processes: WeakMap&lt;Pid, Weak&lt;Process&gt;&gt;&quot;]
+        
+        Session[&quot;Session
+        - sid: Pid
+        - process_groups: WeakMap&lt;Pid, Weak&lt;ProcessGroup&gt;&gt;&quot;]
+    end
+    
+    %% 连接关系
+    Task --&gt;|拥有| TaskExt
+    TaskExt --&gt;|引用| Thread
+    Thread --&gt;|属于| Process
+    Thread --&gt;|拥有| ThreadData
+    Process --&gt;|拥有| ProcessData
+    Process --&gt;|管理| ThreadGroup
+    ThreadGroup --&gt;|包含| Thread
+    Process --&gt;|归属于| ProcessGroup
+    ProcessGroup --&gt;|归属于| Session
+    Process --&gt;|子进程关系| Process</code></pre></div>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code>axprocess::Process::new_init(axtask::current().id().as_u64() <span class="kw">as _</span>).build();</code></pre></div>
+<p>相关数据结构</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="doccomment">/// A builder for creating a new [`Process`].
+</span><span class="kw">pub struct </span>ProcessBuilder {
+    pid: Pid,
+    parent: <span class="prelude-ty">Option</span>&lt;Arc&lt;Process&gt;&gt;,
+    data: Box&lt;<span class="kw">dyn </span>Any + Send + Sync&gt;,
+}
+
+<span class="doccomment">/// A process.
+</span><span class="kw">pub struct </span>Process {
+    pid: Pid,
+    is_zombie: AtomicBool,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) tg: SpinNoIrq&lt;ThreadGroup&gt;,
+
+    data: Box&lt;<span class="kw">dyn </span>Any + Send + Sync&gt;,
+
+    <span class="comment">// TODO: child subreaper
+    </span>children: SpinNoIrq&lt;StrongMap&lt;Pid, Arc&lt;Process&gt;&gt;&gt;,
+    parent: SpinNoIrq&lt;Weak&lt;Process&gt;&gt;,
+
+    group: SpinNoIrq&lt;Arc&lt;ProcessGroup&gt;&gt;,
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ThreadGroup {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) threads: WeakMap&lt;Pid, Weak&lt;Thread&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) exit_code: i32,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) group_exited: bool,
+}
+
+<span class="doccomment">/// A [`ProcessGroup`] is a collection of [`Process`]es.
+</span><span class="kw">pub struct </span>ProcessGroup {
+    pgid: Pid,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) session: Arc&lt;Session&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) processes: SpinNoIrq&lt;WeakMap&lt;Pid, Weak&lt;Process&gt;&gt;&gt;,
+}
+
+<span class="doccomment">/// A [`Session`] is a collection of [`ProcessGroup`]s.
+</span><span class="kw">pub struct </span>Session {
+    sid: Pid,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) process_groups: SpinNoIrq&lt;WeakMap&lt;Pid, Weak&lt;ProcessGroup&gt;&gt;&gt;,
+    <span class="comment">// TODO: shell job control
+</span>}</code></pre></div>
+<h4 id="资源限制"><a class="doc-anchor" href="#资源限制">§</a>资源限制</h4><h3 id="信号机制"><a class="doc-anchor" href="#信号机制">§</a>信号机制</h3><div class="example-wrap"><pre class="language-mermaid"><code>classDiagram
+    class Signo {
+        +SIGHUP, SIGINT, SIGKILL, etc.
+        +is_realtime() bool
+        +default_action() DefaultSignalAction
+    }
+    
+    class DefaultSignalAction {
+        &lt;&lt;enumeration&gt;&gt;
+        Terminate
+        Ignore
+        CoreDump
+        Stop
+        Continue
+    }
+    
+    class SignalOSAction {
+        &lt;&lt;enumeration&gt;&gt;
+        Terminate
+        CoreDump
+        Stop
+        Continue
+        Handler
+    }
+    
+    class SignalSet {
+        -u64 value
+        +add(signal: Signo) bool
+        +remove(signal: Signo) bool
+        +has(signal: Signo) bool
+        +dequeue(mask: SignalSet) Option~Signo~
+        +to_ctype(dest: kernel_sigset_t)
+    }
+    
+    class SignalInfo {
+        -siginfo_t raw_info
+        +new(signo: Signo, code: u32)
+        +signo() Signo
+        +set_signo(signo: Signo)
+        +code() u32
+        +set_code(code: u32)
+    }
+    
+    class SignalActionFlags {
+        &lt;&lt;bitflags&gt;&gt;
+        +SIGINFO
+        +NODEFER
+        +RESETHAND
+        +RESTART
+        +ONSTACK
+        +RESTORER
+    }
+    
+    class SignalDisposition {
+        &lt;&lt;enumeration&gt;&gt;
+        Default
+        Ignore
+        Handler
+    }
+    
+    class SignalAction {
+        +flags: SignalActionFlags
+        +mask: SignalSet
+        +disposition: SignalDisposition
+        +restorer: __sigrestore_t
+        +to_ctype(dest: kernel_sigaction)
+    }
+    
+    class SignalStack {
+        +sp: usize
+        +flags: u32
+        +size: usize
+        +disabled() bool
+    }
+    
+    class PendingSignals {
+        +set: SignalSet
+        -info_std: [Option~SignalInfo~; 32]
+        -info_rt: [VecDeque~SignalInfo~; 33]
+        +new()
+        +put_signal(sig: SignalInfo) bool
+        +dequeue_signal(mask: SignalSet) Option~SignalInfo~
+    }
+    
+    Signo --&gt; DefaultSignalAction: defines default action
+    SignalDisposition --&gt; Signo: references for handlers
+    SignalInfo --&gt; Signo: contains signal number
+    SignalSet --&gt; Signo: manages set of signals
+    SignalAction --&gt; SignalDisposition: defines action
+    SignalAction --&gt; SignalSet: holds blocked signals
+    SignalAction --&gt; SignalActionFlags: configures behavior
+    PendingSignals --&gt; SignalSet: tracks pending signals
+    PendingSignals --&gt; SignalInfo: stores signal info
+```
+</code></pre></div><h4 id="注册信号"><a class="doc-anchor" href="#注册信号">§</a>注册信号</h4><h5 id="linux"><a class="doc-anchor" href="#linux">§</a>Linux</h5><div class="example-wrap"><pre class="language-c"><code>struct sigaction {
+#ifndef __ARCH_HAS_IRIX_SIGACTION (mips define)
+	__sighandler_t	sa_handler;
+	unsigned long	sa_flags;
+#else
+	unsigned int	sa_flags;
+	__sighandler_t	sa_handler;
+#endif
+#ifdef __ARCH_HAS_SA_RESTORER (x86)
+	__sigrestore_t sa_restorer;
+#endif
+	sigset_t	sa_mask;	/* mask last for extensibility */
+};
+
+struct k_sigaction {
+	struct sigaction sa;
+#ifdef __ARCH_HAS_KA_RESTORER
+	__sigrestore_t ka_restorer;
+#endif
+};
+
+SYSCALL_DEFINE4(rt_sigaction, int, sig,
+    const struct sigaction __user *, act,
+    struct sigaction __user *, oact,
+    size_t, sigsetsize)
+{
+    struct k_sigaction new_sa, old_sa;
+    int ret = -EINVAL;
+......
+    if (act) {
+      if (copy_from_user(&amp;new_sa.sa, act, sizeof(new_sa.sa)))
+        return -EFAULT;
+    }
+
+    ret = do_sigaction(sig, act ? &amp;new_sa : NULL, oact ? &amp;old_sa : NULL);
+
+    if (!ret &amp;&amp; oact) {
+        if (copy_to_user(oact, &amp;old_sa.sa, sizeof(old_sa.sa)))
+            return -EFAULT;
+    }
+out:
+    return ret;
+}
+
+int do_sigaction(int sig, struct k_sigaction *act, struct k_sigaction *oact)
+{
+    struct task_struct *p = current, *t;
+    struct k_sigaction *k;
+    sigset_t mask;
+......
+    k = &amp;p-&gt;sighand-&gt;action[sig-1];
+
+    spin_lock_irq(&amp;p-&gt;sighand-&gt;siglock);
+    if (oact)
+        *oact = *k;
+
+    if (act) {
+        sigdelsetmask(&amp;act-&gt;sa.sa_mask, sigmask(SIGKILL) | sigmask(SIGSTOP));
+        *k = *act;
+......
+  }
+
+  spin_unlock_irq(&amp;p-&gt;sighand-&gt;siglock);
+  return 0;
+}</code></pre></div><h4 id="发送信号"><a class="doc-anchor" href="#发送信号">§</a>发送信号</h4><h4 id="linux-1"><a class="doc-anchor" href="#linux-1">§</a>Linux</h4><div class="example-wrap"><pre class="language-c"><code>// kernel/signal.c
+SYSCALL_DEFINE2(kill, pid_t, pid, int, sig)
+{
+    struct kernel_siginfo info;
+
+    // 初始化信号信息结构体
+    clear_siginfo(&amp;info);
+    info.si_signo = sig;
+    info.si_errno = 0;
+    info.si_code = SI_USER;  // 来自用户空间的信号
+    info.si_pid = task_tgid_vnr(current); // 发送者 PID
+    info.si_uid = from_kuid_munged(current_user_ns(), current_uid());
+
+    // 核心处理函数
+    return kill_something_info(sig, &amp;info, pid);
+}
+
+static int kill_something_info(int sig, struct kernel_siginfo *info, pid_t pid)
+{
+    if (pid &gt; 0) {
+        // 发送给单个进程
+        return kill_pid_info(sig, info, find_vpid(pid));
+    } else if (pid == -1) {
+        // 广播给所有有权限的进程
+        int ret = __kill_pgrp_info(sig, info, task_pgrp(current));
+        // ... 其他进程组处理
+    } else if (pid &lt; 0) {
+        // 发送给进程组 |pid|
+        return kill_pgrp_info(sig, info, pid);
+    } else if (pid == 0) {
+        // 当前进程组
+        return kill_pgrp_info(sig, info, task_pgrp(current));
+    }
+    return -EINVAL;
+}
+
+// kernel/signal.c
+static int check_kill_permission(int sig, struct kernel_siginfo *info,
+                                 struct task_struct *t)
+{
+    const struct cred *cred = current_cred();
+    const struct cred *tcred = __task_cred(t);
+
+    // 特权进程 (CAP_KILL) 可以绕过权限检查
+    if (cred-&gt;user_ns != tcred-&gt;user_ns ||
+        !kuid_has_mapping(cred-&gt;user_ns, tcred-&gt;suid)) {
+        if (sig != SIGCONT || task_session(current) != task_session(t))
+            return -EPERM;
+    }
+
+    // 检查 CAP_KILL 能力
+    if (has_capability_noaudit(current, CAP_KILL))
+        return 0;
+
+    // 普通用户只能向自己的进程发送信号
+    if (uid_eq(cred-&gt;euid, tcred-&gt;suid) ||
+        uid_eq(cred-&gt;euid, tcred-&gt;uid)  ||
+        uid_eq(cred-&gt;uid,  tcred-&gt;suid) ||
+        uid_eq(cred-&gt;uid,  tcred-&gt;uid))
+        return 0;
+
+    return -EPERM;
+}
+
+// kernel/signal.c
+int send_signal(int sig, struct kernel_siginfo *info, struct task_struct *t,
+                enum pid_type type)
+{
+    int ret = 0;
+
+    // 忽略无效信号
+    if (!valid_signal(sig) || sig &lt; 0)
+        return -EINVAL;
+
+    // 检查权限
+    ret = check_kill_permission(sig, info, t);
+    if (ret)
+        return ret;
+
+    // 合并相同的实时信号
+    if (legacy_queue(sig, &amp;t-&gt;pending))
+        return 0;
+
+    // 分配信号队列项
+    q = __sigqueue_alloc(sig, t, GFP_ATOMIC, 0);
+    if (q) {
+        list_add_tail(&amp;q-&gt;list, &amp;t-&gt;pending.list);
+        sigaddset(&amp;t-&gt;pending.signal, sig);
+    }
+
+    // 唤醒进程处理信号
+    signal_wake_up(t, sig == SIGKILL);
+    return 0;
+}</code></pre></div><h3 id="futex"><a class="doc-anchor" href="#futex">§</a>Futex</h3><h3 id="arceos-change"><a class="doc-anchor" href="#arceos-change">§</a>ArceOS change</h3><h4 id="axhal"><a class="doc-anchor" href="#axhal">§</a>axhal</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="comment">// arch/loongarch64
+</span><span class="kw">pub use </span><span class="self">self</span>::context::{TaskContext, TrapFrame, GeneralRegisters};</code></pre></div>
+<h3 id="questions"><a class="doc-anchor" href="#questions">§</a>Questions</h3>
+<ul>
+<li>C类型使用混乱，调用core::ffi，linux_raw_sys，如果要调用areaos_posix_api，还需要调用areos_posix_api中的ctypes</li>
+<li>同步原语使用混乱，axsync，spin，lock_api(axsignal)</li>
+</ul>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="entry/index.html" title="mod starry::entry">entry</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="mod" href="mm/index.html" title="mod starry::mm">mm</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="mod" href="syscall/index.html" title="mod starry::syscall">syscall</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.main.html" title="fn starry::main">main</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li></ul></section></div></main></body></html>

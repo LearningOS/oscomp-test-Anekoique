@@ -1,0 +1,3 @@
+var srcIndex = new Map(JSON.parse('[["axsignal",["",[["api",[],["mod.rs","process.rs","thread.rs"]],["arch",[],["mod.rs","x86_64.rs"]]],["action.rs","lib.rs","pending.rs","types.rs"]]],["starry",["",[],["entry.rs","main.rs","mm.rs","syscall.rs"]]],["starry_api",["",[["imp",[["fs",[],["ctl.rs","fd_ops.rs","io.rs","mod.rs","mount.rs","pipe.rs","stat.rs"]],["mm",[],["brk.rs","mmap.rs","mod.rs"]],["task",[],["clone.rs","execve.rs","exit.rs","mod.rs","schedule.rs","thread.rs","wait.rs"]],["utils",[],["mod.rs","time.rs"]]],["mod.rs","resource.rs","signal.rs","sys.rs"]]],["lib.rs","ptr.rs"]]],["starry_core",["",[],["lib.rs","mm.rs","resources.rs","task.rs","time.rs"]]]]'));
+createSrcSidebar();
+//{"start":36,"fragment_lengths":[148,63,345,78]}
