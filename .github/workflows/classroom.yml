@@ -50,7 +50,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Anekoique/StarryX
-          ref: 915d6ccb5db469b79ab325b8acb5574c22732bc9
+          ref: 7ec9373c7ece4b543c2c3237e9cd755a2b36f386
           path: StarryX
       - name: Run testcases
         run: |
