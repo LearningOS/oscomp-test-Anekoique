@@ -45,33 +45,38 @@ jobs:
           qemu-version: ${{ env.qemu-version }}
       - name: Build python environment
         run: sudo apt-get install -y python3 python3-pip
-      - name: build os.bin
+
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          repository: Anekoique/StarryX
+          ref: 915d6ccb5db469b79ab325b8acb5574c22732bc9
+          path: StarryX
+      - name: Run testcases
         run: |
-          touch riscv64_output.txt
-          echo 'start---riscv64' > riscv64_output.txt
-          touch loongarch64_output.txt
-          echo 'start---loongarch64' > loongarch64_output.txt
-          touch aarch64_output.txt
-          echo 'start---aarch64' > aarch64_output.txt
-          touch x86_64_output.txt
-          echo 'start---x86_64' > x86_64_output.txt
-          make oscomp_run ARCH=riscv64 BLK=y NET=y FEATURES=fp_simd,lwext4_rs >> riscv64_output.txt || true
-          echo 'end---riscv64' >> riscv64_output.txt
-          make clean
-          make oscomp_run ARCH=loongarch64 BLK=y NET=y FEATURES=fp_simd,lwext4_rs >> loongarch64_output.txt || true
-          echo 'end---loongarch64' >> loongarch64_output.txt
-          make clean
-          make oscomp_run ARCH=aarch64 BLK=y NET=y FEATURES=fp_simd,lwext4_rs >> aarch64_output.txt || true
-          echo 'end---aarch64' >> aarch64_output.txt
-          make clean
-          make oscomp_run ARCH=x86_64 BLK=y NET=y FEATURES=fp_simd,lwext4_rs ACCEL=n >> x86_64_output.txt || true
-          echo 'end---x86_64' >> x86_64_output.txt
-          touch output.txt
-          cat riscv64_output.txt >> output.txt
-          cat loongarch64_output.txt >> output.txt
-          cat aarch64_output.txt >> output.txt
-          cat x86_64_output.txt >> output.txt
+          
+          cp testcase_list StarryX/apps/oscomp
+
+          cd StarryX
+
+          echo 'start---riscv64' >> output.txt
+          make ARCH=riscv64 oscomp_run >> output.txt || true
+          echo 'end---riscv64' >> output.txt
+
+          echo 'start---aarch64' >> output.txt
+          make ARCH=aarch64 oscomp_run >> output.txt || true
+          echo 'end---aarch64' >> output.txt
+
+          echo 'start---loongarch64' >> output.txt
+          make ARCH=loongarch64 oscomp_run >> output.txt || true
+          echo 'end---loongarch64' >> output.txt
+
+          echo 'start---x86_64' >> output.txt
+          make ARCH=x86_64 ACCEL=n oscomp_run >> output.txt || true
+          echo 'end---x86_64' >> output.txt
+
           cat output.txt
+          mv output.txt ../output.txt
           
       - name: Download EvaluationScript
         run: |
